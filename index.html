@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Threat Actor Profiler — TTPs, campaigns & hunting pivots</title>
+  <meta name="description" content="Enter an actor name (APT28, LockBit, Lazarus) — get aliases, MITRE techniques, tooling, campaigns, IOC patterns and hunting pivots. Analyst-grade, client-side.">
+  <style>
+    :root {
+      --bg0:#0d1117; --bg1:#161b22; --bg2:#21262d; --bg3:#30363d;
+      --text0:#e6edf3; --text1:#c9d1d9; --text2:#8b949e; --text3:#484f58;
+      --accent:#58a6ff; --accent2:#1f6feb;
+      --green:#3fb950; --red:#f85149; --orange:#d29922; --yellow:#e3b341;
+      --purple:#bc8cff; --teal:#39d353; --pink:#f778ba;
+      --border:#30363d; --border2:#21262d;
+      --radius:8px; --radius-lg:12px;
+      --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+      --mono:'Cascadia Code','Fira Code','Consolas',monospace;
+    }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{ font-family:var(--font); background:var(--bg0); color:var(--text1); min-height:100vh; line-height:1.6; }
+
+    /* ── Header ─────────────────────────────────────── */
+    header{
+      background:var(--bg1); border-bottom:1px solid var(--border);
+      padding:.85rem 1.5rem; display:flex; align-items:center;
+      justify-content:space-between; gap:1rem; flex-wrap:wrap;
+      position:sticky; top:0; z-index:100;
+    }
+    .logo{ font-size:1.25rem; font-weight:700; color:var(--text0); letter-spacing:-.5px; }
+    .logo span{ color:var(--purple); }
+    .tagline{ font-size:.76rem; color:var(--text2); }
+    .header-right{ display:flex; gap:.5rem; align-items:center; }
+
+    /* ── Buttons ─────────────────────────────────────── */
+    .btn-ghost{
+      background:transparent; border:1px solid var(--border);
+      color:var(--text2); padding:.3rem .7rem; border-radius:var(--radius);
+      font-size:.78rem; cursor:pointer; transition:all .15s; text-decoration:none;
+      display:inline-flex; align-items:center; gap:.3rem;
+    }
+    .btn-ghost:hover{ border-color:var(--accent); color:var(--accent); }
+    .btn-primary{
+      background:var(--purple); border:none; color:#fff;
+      font-size:.9rem; font-weight:700; padding:.65rem 1.4rem;
+      border-radius:var(--radius); cursor:pointer; transition:all .15s;
+      display:inline-flex; align-items:center; gap:.4rem;
+    }
+    .btn-primary:hover{ filter:brightness(1.15); }
+    .btn-primary:disabled{ opacity:.45; cursor:not-allowed; }
+    .btn-sm{
+      background:var(--bg2); border:1px solid var(--border);
+      color:var(--text2); font-size:.78rem; padding:.3rem .7rem;
+      border-radius:var(--radius); cursor:pointer; transition:all .15s;
+      display:inline-flex; align-items:center; gap:.3rem; text-decoration:none;
+    }
+    .btn-sm:hover{ border-color:var(--accent); color:var(--accent); }
+
+    /* ── Main ────────────────────────────────────────── */
+    main{ max-width:960px; margin:0 auto; padding:1.75rem 1.5rem; }
+
+    /* ── Input card ──────────────────────────────────── */
+    .input-card{
+      background:var(--bg1); border:1px solid var(--border);
+      border-radius:var(--radius-lg); padding:1.25rem 1.5rem;
+      margin-bottom:1.25rem;
+    }
+    .input-row{
+      display:flex; gap:.75rem; align-items:stretch; flex-wrap:wrap;
+    }
+    .actor-input{
+      flex:1; min-width:200px; background:var(--bg2); border:1px solid var(--border);
+      color:var(--text0); font-family:var(--font); font-size:1rem; font-weight:600;
+      padding:.65rem 1rem; border-radius:var(--radius); outline:none;
+      transition:border-color .15s; letter-spacing:.02em;
+    }
+    .actor-input:focus{ border-color:var(--purple); }
+    .actor-input::placeholder{ color:var(--text3); font-weight:400; }
+    .context-textarea{
+      width:100%; min-height:80px; background:var(--bg2); border:1px solid var(--border);
+      color:var(--text0); font-family:var(--mono); font-size:.82rem;
+      padding:.75rem 1rem; border-radius:var(--radius);
+      resize:vertical; outline:none; transition:border-color .15s; line-height:1.5;
+      margin-top:.75rem;
+    }
+    .context-textarea:focus{ border-color:var(--purple); }
+    .context-textarea::placeholder{ color:var(--text3); }
+    .input-actions{ display:flex; gap:.5rem; margin-top:.85rem; flex-wrap:wrap; align-items:center; }
+
+    /* Quick actors */
+    .quick-actors{ display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.75rem; }
+    .quick-actor{
+      font-size:.73rem; padding:.2rem .65rem; border-radius:20px;
+      background:var(--bg2); border:1px solid var(--border); color:var(--text2);
+      cursor:pointer; transition:all .15s; font-weight:600;
+    }
+    .quick-actor:hover{ border-color:var(--purple); color:var(--purple); }
+
+    /* API key row */
+    .apikey-row{
+      margin-top:.85rem; padding-top:.85rem; border-top:1px solid var(--border2);
+      display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;
+    }
+    .apikey-label{ font-size:.76rem; color:var(--text2); white-space:nowrap; }
+    .apikey-input{
+      flex:1; min-width:180px; background:var(--bg2); border:1px solid var(--border);
+      color:var(--text0); font-family:var(--mono); font-size:.78rem;
+      padding:.38rem .75rem; border-radius:var(--radius); outline:none; transition:border-color .15s;
+    }
+    .apikey-input:focus{ border-color:var(--purple); }
+    .model-select{
+      background:var(--bg2); border:1px solid var(--border);
+      color:var(--text1); font-size:.76rem; padding:.35rem .55rem;
+      border-radius:var(--radius); outline:none; cursor:pointer;
+    }
+
+    /* ── Loading ─────────────────────────────────────── */
+    #status-bar{ text-align:center; padding:2.5rem 1rem; display:none; }
+    .loading-steps{ list-style:none; display:inline-flex; flex-direction:column; gap:.5rem; text-align:left; margin-top:1rem; }
+    .loading-step{ font-size:.83rem; color:var(--text2); display:flex; align-items:center; gap:.6rem; }
+    .loading-step.active{ color:var(--accent); }
+    .loading-step.done{ color:var(--green); }
+    .step-dot{ width:8px; height:8px; border-radius:50%; background:var(--border); flex-shrink:0; }
+    .loading-step.active .step-dot{ background:var(--accent); box-shadow:0 0 6px var(--accent); animation:pulse .8s ease-in-out infinite; }
+    .loading-step.done .step-dot{ background:var(--green); }
+    @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ── Error ───────────────────────────────────────── */
+    #error-box{
+      background:color-mix(in srgb,var(--red) 10%,var(--bg1));
+      border:1px solid color-mix(in srgb,var(--red) 35%,var(--border));
+      border-radius:var(--radius); padding:.85rem 1.1rem;
+      color:var(--red); font-size:.86rem; display:none; margin-bottom:1.25rem;
+    }
+
+    /* ── Results ─────────────────────────────────────── */
+    #results{ display:none; }
+    .results-header{
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:1rem; flex-wrap:wrap; gap:.5rem;
+    }
+    .actor-title{ font-size:1.4rem; font-weight:800; color:var(--text0); }
+    .actor-aliases{ font-size:.8rem; color:var(--text2); margin-top:.15rem; }
+    .results-actions{ display:flex; gap:.5rem; flex-wrap:wrap; }
+
+    /* ── Section card ────────────────────────────────── */
+    .section{
+      background:var(--bg1); border:1px solid var(--border);
+      border-radius:var(--radius-lg); padding:1.1rem 1.35rem;
+      margin-bottom:.85rem;
+    }
+    .section-title{
+      font-size:.72rem; text-transform:uppercase; letter-spacing:.8px;
+      color:var(--text2); font-weight:700; margin-bottom:.85rem;
+      display:flex; align-items:center; gap:.5rem;
+    }
+    .section-title-icon{ font-size:.9rem; }
+
+    /* ── Summary ─────────────────────────────────────── */
+    .summary-text{
+      font-size:.95rem; color:var(--text0); line-height:1.75;
+      border-left:3px solid var(--purple); padding-left:1rem;
+    }
+
+    /* ── Identity row ────────────────────────────────── */
+    .identity-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:.75rem; }
+    .identity-item{ background:var(--bg2); border-radius:var(--radius); padding:.65rem .85rem; }
+    .identity-label{ font-size:.68rem; text-transform:uppercase; letter-spacing:.6px; color:var(--text2); margin-bottom:.25rem; }
+    .identity-value{ font-size:.86rem; font-weight:600; color:var(--text0); }
+
+    /* ── Tags ────────────────────────────────────────── */
+    .tag-list{ display:flex; flex-wrap:wrap; gap:.4rem; }
+    .tag{
+      font-size:.75rem; font-weight:600; padding:.25rem .7rem;
+      border-radius:20px; border:1px solid var(--border); color:var(--text1);
+      background:var(--bg2);
+    }
+    .tag.sector{ border-color:color-mix(in srgb,var(--orange) 40%,var(--border)); color:var(--orange); background:color-mix(in srgb,var(--orange) 8%,var(--bg2)); }
+    .tag.region{ border-color:color-mix(in srgb,var(--accent) 40%,var(--border)); color:var(--accent); background:color-mix(in srgb,var(--accent) 8%,var(--bg2)); }
+    .tag.tool{ border-color:color-mix(in srgb,var(--red) 40%,var(--border)); color:var(--red); background:color-mix(in srgb,var(--red) 8%,var(--bg2)); }
+    .tag.pivot{ border-color:color-mix(in srgb,var(--teal) 40%,var(--border)); color:var(--teal); background:color-mix(in srgb,var(--teal) 8%,var(--bg2)); }
+
+    /* ── MITRE table ─────────────────────────────────── */
+    .mitre-table{ width:100%; border-collapse:collapse; font-size:.83rem; }
+    .mitre-table th{
+      text-align:left; font-size:.68rem; text-transform:uppercase; letter-spacing:.5px;
+      color:var(--text2); padding:.4rem .65rem; border-bottom:1px solid var(--border);
+    }
+    .mitre-table td{ padding:.55rem .65rem; border-bottom:1px solid var(--border2); vertical-align:top; }
+    .mitre-table tr:last-child td{ border-bottom:none; }
+    .mitre-table tr:hover td{ background:var(--bg2); }
+    .technique-id{
+      font-family:var(--mono); font-size:.75rem; font-weight:700;
+      color:var(--purple); white-space:nowrap;
+    }
+    .technique-id a{ color:inherit; text-decoration:none; }
+    .technique-id a:hover{ text-decoration:underline; }
+    .technique-name{ font-weight:600; color:var(--text0); margin-bottom:.2rem; }
+    .technique-use{ color:var(--text2); font-size:.8rem; }
+    .tactic-badge{
+      font-size:.66rem; font-weight:700; padding:.1rem .55rem; border-radius:20px;
+      background:color-mix(in srgb,var(--purple) 12%,var(--bg2));
+      border:1px solid color-mix(in srgb,var(--purple) 30%,var(--border));
+      color:var(--purple); white-space:nowrap;
+    }
+
+    /* ── Tooling table ───────────────────────────────── */
+    .tool-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:.65rem; }
+    .tool-card{ background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:.75rem .95rem; }
+    .tool-name{ font-weight:700; color:var(--text0); font-size:.88rem; display:flex; align-items:center; gap:.5rem; }
+    .tool-type{ font-size:.65rem; font-weight:700; padding:.1rem .5rem; border-radius:20px; background:color-mix(in srgb,var(--red) 12%,var(--bg2)); border:1px solid color-mix(in srgb,var(--red) 30%,var(--border)); color:var(--red); text-transform:uppercase; letter-spacing:.4px; }
+    .tool-desc{ font-size:.79rem; color:var(--text2); margin-top:.3rem; }
+
+    /* ── Campaigns ───────────────────────────────────── */
+    .campaign-list{ display:flex; flex-direction:column; gap:.65rem; }
+    .campaign-item{ background:var(--bg2); border-left:3px solid var(--orange); padding:.65rem .95rem; border-radius:0 var(--radius) var(--radius) 0; }
+    .campaign-header{ display:flex; align-items:center; gap:.6rem; margin-bottom:.2rem; }
+    .campaign-name{ font-weight:700; color:var(--text0); font-size:.88rem; }
+    .campaign-year{ font-size:.72rem; color:var(--text3); font-family:var(--mono); }
+    .campaign-desc{ font-size:.81rem; color:var(--text2); }
+
+    /* ── Infrastructure ──────────────────────────────── */
+    .infra-text{ font-size:.86rem; color:var(--text1); line-height:1.65; }
+
+    /* ── Hunting pivots ──────────────────────────────── */
+    .pivot-list{ display:flex; flex-direction:column; gap:.5rem; }
+    .pivot-item{
+      background:var(--bg2); border:1px solid color-mix(in srgb,var(--teal) 25%,var(--border));
+      border-radius:var(--radius); padding:.6rem .9rem;
+      display:flex; align-items:flex-start; gap:.7rem;
+    }
+    .pivot-icon{ font-size:.9rem; flex-shrink:0; margin-top:.1rem; }
+    .pivot-text{ font-size:.83rem; color:var(--text1); }
+    .pivot-text strong{ color:var(--teal); }
+
+    /* ── Pipeline strip ──────────────────────────────── */
+    .pipeline-strip{
+      background:var(--bg1); border:1px solid var(--border);
+      border-radius:var(--radius-lg); padding:.85rem 1.35rem;
+      margin-bottom:.85rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;
+    }
+    .pipeline-label{ font-size:.72rem; color:var(--text2); font-weight:700; text-transform:uppercase; letter-spacing:.6px; margin-right:.25rem; }
+    .pipeline-link{
+      font-size:.75rem; font-weight:700; text-decoration:none;
+      padding:.28rem .8rem; border-radius:5px;
+      background:rgba(88,166,255,.12);
+      border:1px solid rgba(88,166,255,.35);
+      color:#79b8ff; transition:all .15s; white-space:nowrap;
+      display:inline-flex; align-items:center; gap:.3rem;
+    }
+    .pipeline-link:hover{ background:rgba(88,166,255,.24); border-color:rgba(88,166,255,.6); box-shadow:0 0 6px rgba(88,166,255,.2); }
+
+    /* ── Footer ──────────────────────────────────────── */
+    footer{
+      border-top:1px solid var(--border); padding:1.5rem;
+      text-align:center; margin-top:2rem;
+    }
+    .footer-title{ font-size:.8rem; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.6px; margin-bottom:.85rem; }
+    .footer-tools{ display:flex; flex-wrap:wrap; justify-content:center; gap:.5rem; }
+    .footer-tool{
+      font-size:.76rem; padding:.3rem .85rem; border-radius:20px;
+      background:var(--bg1); border:1px solid var(--border); color:var(--text2);
+      text-decoration:none; transition:all .15s;
+    }
+    .footer-tool:hover{ border-color:var(--accent); color:var(--accent); }
+    .footer-tool.current{ border-color:var(--purple); color:var(--purple); }
+    .footer-copy{ font-size:.72rem; color:var(--text3); margin-top:1rem; }
+
+    /* ── Confidence badge ────────────────────────────── */
+    .confidence-badge{
+      font-size:.72rem; font-weight:700; padding:.2rem .75rem; border-radius:20px;
+    }
+    .confidence-high{ background:color-mix(in srgb,var(--green) 12%,var(--bg2)); border:1px solid color-mix(in srgb,var(--green) 35%,var(--border)); color:var(--green); }
+    .confidence-medium{ background:color-mix(in srgb,var(--orange) 12%,var(--bg2)); border:1px solid color-mix(in srgb,var(--orange) 35%,var(--border)); color:var(--orange); }
+    .confidence-low{ background:color-mix(in srgb,var(--red) 12%,var(--bg2)); border:1px solid color-mix(in srgb,var(--red) 35%,var(--border)); color:var(--red); }
+
+    /* ── Disclaimer ──────────────────────────────────── */
+    .disclaimer{
+      background:color-mix(in srgb,var(--yellow) 6%,var(--bg1));
+      border:1px solid color-mix(in srgb,var(--yellow) 25%,var(--border));
+      border-radius:var(--radius); padding:.65rem 1rem;
+      font-size:.76rem; color:var(--text2); margin-bottom:1rem;
+      display:flex; gap:.5rem; align-items:flex-start;
+    }
+    .disclaimer-icon{ flex-shrink:0; }
+
+    @media(max-width:600px){
+      header{ padding:.75rem 1rem; }
+      main{ padding:1.25rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">🕵️ Threat<span>Actor</span> Profiler</div>
+    <div class="tagline">Actor name → TTPs · campaigns · IOC patterns · hunting pivots</div>
+  </div>
+  <div class="header-right">
+    <a href="https://dgiry.github.io" class="btn-ghost">🏠 Suite</a>
+    <a href="https://github.com/dgiry/threat-actor-profiler" target="_blank" rel="noopener" class="btn-ghost">⭐ GitHub</a>
+  </div>
+</header>
+
+<main>
+  <!-- Input card -->
+  <div class="input-card">
+    <div style="font-size:.8rem;color:var(--text2);margin-bottom:.65rem;">Quick actors</div>
+    <div class="quick-actors" id="quick-actors">
+      <span class="quick-actor" onclick="setActor('APT28')">APT28</span>
+      <span class="quick-actor" onclick="setActor('APT29')">APT29</span>
+      <span class="quick-actor" onclick="setActor('APT41')">APT41</span>
+      <span class="quick-actor" onclick="setActor('Lazarus Group')">Lazarus</span>
+      <span class="quick-actor" onclick="setActor('LockBit')">LockBit</span>
+      <span class="quick-actor" onclick="setActor('BlackCat ALPHV')">BlackCat</span>
+      <span class="quick-actor" onclick="setActor('Scattered Spider')">Scattered Spider</span>
+      <span class="quick-actor" onclick="setActor('Volt Typhoon')">Volt Typhoon</span>
+      <span class="quick-actor" onclick="setActor('Cl0p')">Cl0p</span>
+      <span class="quick-actor" onclick="setActor('FIN7')">FIN7</span>
+    </div>
+    <div class="input-row">
+      <input type="text" id="actor-input" class="actor-input"
+             placeholder="APT28, LockBit, Lazarus Group, Scattered Spider…"
+             onkeydown="if(event.key==='Enter') profile()"
+             oninput="onActorInput()">
+      <button class="btn-primary" onclick="profile()" id="profile-btn">🕵️ Profile actor</button>
+    </div>
+    <textarea id="context-input" class="context-textarea" rows="2"
+      placeholder="Optional context — IOC, malware name, campaign, incident description…"></textarea>
+    <div class="apikey-row">
+      <span class="apikey-label">OpenAI API key</span>
+      <input type="password" id="api-key" class="apikey-input" placeholder="sk-…" autocomplete="off">
+      <select id="model-select" class="model-select">
+        <option value="gpt-4o-mini">gpt-4o-mini</option>
+        <option value="gpt-4o">gpt-4o</option>
+        <option value="gpt-4-turbo">gpt-4-turbo</option>
+      </select>
+      <button class="btn-sm" onclick="saveKey()">💾 Save key</button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div id="error-box"></div>
+
+  <!-- Loading -->
+  <div id="status-bar">
+    <div style="font-size:.85rem;color:var(--text2);margin-bottom:.75rem;">Profiling threat actor…</div>
+    <ul class="loading-steps" id="loading-steps">
+      <li class="loading-step" id="step-0"><span class="step-dot"></span>Identifying actor &amp; aliases</li>
+      <li class="loading-step" id="step-1"><span class="step-dot"></span>Mapping MITRE ATT&amp;CK techniques</li>
+      <li class="loading-step" id="step-2"><span class="step-dot"></span>Enumerating tooling &amp; malware</li>
+      <li class="loading-step" id="step-3"><span class="step-dot"></span>Retrieving campaigns &amp; targets</li>
+      <li class="loading-step" id="step-4"><span class="step-dot"></span>Generating hunting pivots</li>
+    </ul>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+
+    <div class="disclaimer">
+      <span class="disclaimer-icon">⚠️</span>
+      AI-generated profile — knowledge cutoff applies. Verify against MITRE ATT&CK, Mandiant, CrowdStrike Adversary Intelligence before operational use.
+    </div>
+
+    <div class="results-header">
+      <div>
+        <div class="actor-title" id="r-actor-name"></div>
+        <div class="actor-aliases" id="r-aliases"></div>
+      </div>
+      <div class="results-actions">
+        <span id="r-confidence" class="confidence-badge"></span>
+        <button class="btn-sm" onclick="copyMarkdown()">📋 Copy markdown</button>
+        <button class="btn-sm" onclick="resetUI()">↺ New profile</button>
+      </div>
+    </div>
+
+    <!-- Pipeline strip -->
+    <div class="pipeline-strip" id="pipeline-strip" style="display:none">
+      <span class="pipeline-label">▶ Next step</span>
+    </div>
+
+    <!-- Summary -->
+    <div class="section">
+      <div class="section-title"><span class="section-title-icon">📌</span> Analyst summary</div>
+      <div class="summary-text" id="r-summary"></div>
+    </div>
+
+    <!-- Identity -->
+    <div class="section">
+      <div class="section-title"><span class="section-title-icon">🆔</span> Identity</div>
+      <div class="identity-grid" id="r-identity"></div>
+    </div>
+
+    <!-- Targeting -->
+    <div class="section">
+      <div class="section-title"><span class="section-title-icon">🎯</span> Targeting</div>
+      <div style="margin-bottom:.6rem;">
+        <div style="font-size:.72rem;color:var(--text2);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.5px;">Sectors</div>
+        <div class="tag-list" id="r-sectors"></div>
+      </div>
+      <div>
+        <div style="font-size:.72rem;color:var(--text2);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.5px;">Regions</div>
+        <div class="tag-list" id="r-regions"></div>
+      </div>
+    </div>
+
+    <!-- MITRE ATT&CK -->
+    <div class="section">
+      <div class="section-title"><span class="section-title-icon">⚔️</span> MITRE ATT&amp;CK — Top techniques</div>
+      <div style="overflow-x:auto;">
+        <table class="mitre-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Technique</th>
+              <th>Tactic</th>
+              <th>How actor uses it</th>
+            </tr>
+          </thead>
+          <tbody id="r-mitre"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tooling -->
+    <div class="section">
+      <div class="section-title"><span class="section-title-icon">🛠️</span> Tooling &amp; malware</div>
+      <div class="tool-grid" id="r-tooling"></div>
+    </div>
+
+    <!-- Campaigns -->
+    <div class="section">
+      <div class="section-title"><span class="section-title-icon">📅</span> Known campaigns</div>
+      <div class="campaign-list" id="r-campaigns"></div>
+    </div>
+
+    <!-- Infrastructure -->
+    <div class="section">
+      <div class="section-title"><span class="section-title-icon">🌐</span> Infrastructure patterns</div>
+      <div class="infra-text" id="r-infra"></div>
+    </div>
+
+    <!-- Hunting pivots -->
+    <div class="section">
+      <div class="section-title"><span class="section-title-icon">🔭</span> Hunting pivots &amp; detection opportunities</div>
+      <div class="pivot-list" id="r-pivots"></div>
+    </div>
+
+  </div><!-- /results -->
+</main>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-title">SecOps AI Suite</div>
+  <div class="footer-tools">
+    <a href="https://dgiry.github.io/secprior" class="footer-tool">🛡️ SecPrior</a>
+    <a href="https://dgiry.github.io/ioc-pivot" class="footer-tool">🔭 IOC Pivot</a>
+    <a href="https://dgiry.github.io/threat-actor-profiler" class="footer-tool current">🕵️ Threat Actor Profiler</a>
+    <a href="https://dgiry.github.io/cve-enricher" class="footer-tool">🔬 CVE Enricher</a>
+    <a href="https://dgiry.github.io/alert-explainer" class="footer-tool">🚨 Alert Explainer</a>
+    <a href="https://dgiry.github.io/sigma-generator" class="footer-tool">✍️ SIGMA Generator</a>
+    <a href="https://dgiry.github.io/playbook-builder" class="footer-tool">📖 Playbook Builder</a>
+  </div>
+  <div class="footer-copy">MIT License · Open source · No data sent anywhere except OpenAI when you use your key</div>
+</footer>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let _lastProfile = null;
+let _loadingTimer = null;
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(function init() {
+  // Restore API key
+  const saved = localStorage.getItem('cv_oai_key');
+  if (saved) document.getElementById('api-key').value = saved;
+
+  // ?actor= deep-link
+  const params = new URLSearchParams(location.search);
+  const actor = params.get('actor');
+  const ctx   = params.get('context') || params.get('ioc') || params.get('incident');
+  if (actor) {
+    document.getElementById('actor-input').value = actor;
+    if (ctx) document.getElementById('context-input').value = decodeURIComponent(ctx);
+    setTimeout(profile, 200);
+  }
+})();
+
+// ── UI helpers ─────────────────────────────────────────────────────────────
+function setActor(name) {
+  document.getElementById('actor-input').value = name;
+  document.getElementById('actor-input').focus();
+}
+
+function onActorInput() {
+  // could add live suggestions later
+}
+
+function saveKey() {
+  const k = document.getElementById('api-key').value.trim();
+  if (k) { localStorage.setItem('cv_oai_key', k); showToast('API key saved'); }
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  Object.assign(t.style, {
+    position:'fixed', bottom:'1.5rem', right:'1.5rem',
+    background:'#21262d', border:'1px solid #30363d',
+    color:'#c9d1d9', padding:'.6rem 1rem', borderRadius:'8px',
+    fontSize:'.82rem', zIndex:'9999', boxShadow:'0 4px 12px rgba(0,0,0,.4)'
+  });
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+function resetUI() {
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('actor-input').value = '';
+  document.getElementById('context-input').value = '';
+  document.getElementById('actor-input').focus();
+  _lastProfile = null;
+}
+
+// ── Loading steps ──────────────────────────────────────────────────────────
+function startLoadingSteps() {
+  const steps = document.querySelectorAll('.loading-step');
+  steps.forEach(s => { s.classList.remove('active','done'); });
+  let i = 0;
+  _loadingTimer = setInterval(() => {
+    if (i < steps.length) {
+      if (i > 0) steps[i-1].classList.replace('active','done');
+      steps[i].classList.add('active');
+      i++;
+    }
+  }, 1800);
+}
+
+function stopLoadingSteps() {
+  clearInterval(_loadingTimer);
+  document.querySelectorAll('.loading-step').forEach(s => s.classList.remove('active'));
+}
+
+// ── Profile ────────────────────────────────────────────────────────────────
+async function profile() {
+  const actor = document.getElementById('actor-input').value.trim();
+  if (!actor) { document.getElementById('actor-input').focus(); return; }
+
+  const apiKey = document.getElementById('api-key').value.trim()
+    || localStorage.getItem('cv_oai_key') || '';
+  if (!apiKey) {
+    showError('Enter your OpenAI API key to generate profiles.');
+    return;
+  }
+
+  const context = document.getElementById('context-input').value.trim();
+  const model   = document.getElementById('model-select').value;
+
+  // UI state
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('results').style.display   = 'none';
+  document.getElementById('status-bar').style.display = 'block';
+  document.getElementById('profile-btn').disabled = true;
+  startLoadingSteps();
+
+  const systemPrompt = `You are a senior threat intelligence analyst. Produce structured, actionable profiles of threat actors (APT groups, ransomware operators, cybercriminals).
+Output must be analyst-grade: focus on behavior, tooling, and detection opportunities — not generic descriptions.
+Always respond with valid JSON only.`;
+
+  const userPrompt = `Profile the threat actor: "${actor}"
+${context ? `\nAdditional context: ${context}` : ''}
+
+Return a JSON object with exactly these fields:
+{
+  "actorName": "canonical name",
+  "aliases": ["alias1", "alias2", ...],
+  "origin": "country/region of origin",
+  "motivation": "espionage|financial|hacktivism|sabotage|unknown",
+  "motivationDetail": "1-2 sentence description",
+  "activeSince": "year or range",
+  "actorType": "nation-state|cybercriminal|ransomware|hacktivism|unknown",
+  "confidence": "high|medium|low",
+  "summary": "3-4 sentence analyst summary covering who they are, primary mission, and why they matter right now",
+  "targetedSectors": ["Finance", "Healthcare", ...],
+  "targetedRegions": ["North America", "Europe", ...],
+  "mitreTechniques": [
+    { "id": "T1566.001", "name": "Spearphishing Attachment", "tactic": "Initial Access", "actorUse": "How this actor specifically uses this technique" }
+  ],
+  "tooling": [
+    { "name": "Mimikatz", "type": "credential-dumper|rat|loader|ransomware|backdoor|framework|wiper|other", "description": "How actor uses it" }
+  ],
+  "recentCampaigns": [
+    { "name": "Campaign name", "year": "2024", "description": "Target, method, impact" }
+  ],
+  "infrastructure": "Paragraph describing typical C2 patterns, hosting preferences, domain generation, certificate patterns, VPS providers used",
+  "huntingPivots": [
+    "Specific, actionable hunt: what to look for, where, with example query or IOC pattern"
+  ]
+}
+
+Include 5-10 MITRE techniques, 3-8 tools, 2-5 campaigns, 4-6 hunting pivots. Prioritize accuracy over completeness — omit uncertain data rather than hallucinate.`;
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + apiKey },
+      body: JSON.stringify({
+        model,
+        response_format: { type: 'json_object' },
+        temperature: 0.2,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: userPrompt   }
+        ]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const raw  = data.choices?.[0]?.message?.content;
+    const profile = JSON.parse(raw);
+    _lastProfile = profile;
+
+    stopLoadingSteps();
+    document.getElementById('status-bar').style.display = 'none';
+    renderResults(profile, actor);
+
+  } catch (err) {
+    stopLoadingSteps();
+    document.getElementById('status-bar').style.display = 'none';
+    showError('Error: ' + err.message);
+  } finally {
+    document.getElementById('profile-btn').disabled = false;
+  }
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function renderResults(p, queryActor) {
+  // Actor name & aliases
+  document.getElementById('r-actor-name').textContent = p.actorName || queryActor;
+  document.getElementById('r-aliases').textContent =
+    p.aliases?.length ? 'Also known as: ' + p.aliases.join(' · ') : '';
+
+  // Confidence
+  const confEl = document.getElementById('r-confidence');
+  confEl.textContent = (p.confidence || 'medium').toUpperCase() + ' CONFIDENCE';
+  confEl.className = 'confidence-badge confidence-' + (p.confidence || 'medium');
+
+  // Summary
+  document.getElementById('r-summary').textContent = p.summary || '';
+
+  // Identity
+  const identityData = [
+    { label: 'Origin',      value: p.origin       || '—' },
+    { label: 'Actor type',  value: p.actorType     || '—' },
+    { label: 'Motivation',  value: p.motivation    || '—' },
+    { label: 'Active since',value: p.activeSince   || '—' },
+  ];
+  document.getElementById('r-identity').innerHTML = identityData.map(d => `
+    <div class="identity-item">
+      <div class="identity-label">${esc(d.label)}</div>
+      <div class="identity-value">${esc(d.value)}</div>
+    </div>
+  `).join('');
+  if (p.motivationDetail) {
+    document.getElementById('r-identity').innerHTML += `
+      <div class="identity-item" style="grid-column:1/-1">
+        <div class="identity-label">Motivation detail</div>
+        <div class="identity-value" style="font-weight:400;font-size:.83rem;color:var(--text1)">${esc(p.motivationDetail)}</div>
+      </div>`;
+  }
+
+  // Targeting
+  document.getElementById('r-sectors').innerHTML = (p.targetedSectors || [])
+    .map(s => `<span class="tag sector">${esc(s)}</span>`).join('');
+  document.getElementById('r-regions').innerHTML = (p.targetedRegions || [])
+    .map(r => `<span class="tag region">${esc(r)}</span>`).join('');
+
+  // MITRE
+  document.getElementById('r-mitre').innerHTML = (p.mitreTechniques || []).map(t => `
+    <tr>
+      <td><span class="technique-id"><a href="https://attack.mitre.org/techniques/${t.id?.replace('.','/')}" target="_blank" rel="noopener">${esc(t.id || '')}</a></span></td>
+      <td><div class="technique-name">${esc(t.name || '')}</div></td>
+      <td><span class="tactic-badge">${esc(t.tactic || '')}</span></td>
+      <td><div class="technique-use">${esc(t.actorUse || '')}</div></td>
+    </tr>
+  `).join('');
+
+  // Tooling
+  document.getElementById('r-tooling').innerHTML = (p.tooling || []).map(t => `
+    <div class="tool-card">
+      <div class="tool-name">${esc(t.name || '')} <span class="tool-type">${esc(t.type || '')}</span></div>
+      <div class="tool-desc">${esc(t.description || '')}</div>
+    </div>
+  `).join('');
+
+  // Campaigns
+  document.getElementById('r-campaigns').innerHTML = (p.recentCampaigns || []).map(c => `
+    <div class="campaign-item">
+      <div class="campaign-header">
+        <span class="campaign-name">${esc(c.name || '')}</span>
+        <span class="campaign-year">${esc(c.year || '')}</span>
+      </div>
+      <div class="campaign-desc">${esc(c.description || '')}</div>
+    </div>
+  `).join('');
+
+  // Infrastructure
+  document.getElementById('r-infra').textContent = p.infrastructure || '—';
+
+  // Hunting pivots
+  document.getElementById('r-pivots').innerHTML = (p.huntingPivots || []).map(pivot => `
+    <div class="pivot-item">
+      <span class="pivot-icon">🎯</span>
+      <div class="pivot-text">${formatPivot(pivot)}</div>
+    </div>
+  `).join('');
+
+  // Pipeline strip
+  buildPipelineStrip(p, queryActor);
+
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function formatPivot(text) {
+  // Bold the first colon-delimited label if present
+  const match = text.match(/^([^:—–]{3,40})[:\s—–]+(.+)/s);
+  if (match) return `<strong>${esc(match[1])}</strong>: ${esc(match[2])}`;
+  return esc(text);
+}
+
+function buildPipelineStrip(p, actor) {
+  const strip = document.getElementById('pipeline-strip');
+  const actorEnc = encodeURIComponent(actor || p.actorName || '');
+
+  // Build IOC context: actor + tools + infra snippet
+  const iocCtx = [
+    p.actorName,
+    p.tooling?.length ? 'Tools: ' + p.tooling.slice(0,3).map(t=>t.name).join(', ') : '',
+    p.infrastructure ? p.infrastructure.slice(0,150) : ''
+  ].filter(Boolean).join('\n').slice(0,300);
+
+  // Build alert context for Alert Explainer
+  const alertCtx = [
+    p.summary || '',
+    p.mitreTechniques?.length ? 'Techniques: ' + p.mitreTechniques.slice(0,4).map(t=>t.id+' '+t.name).join(', ') : '',
+  ].filter(Boolean).join('\n').slice(0,350);
+
+  // Build SIGMA context
+  const sigmaCtx = [
+    'Threat actor: ' + (p.actorName || actor),
+    p.mitreTechniques?.length ? 'Techniques: ' + p.mitreTechniques.slice(0,5).map(t=>t.id+' '+t.name).join(', ') : '',
+    p.tooling?.length ? 'Tooling: ' + p.tooling.slice(0,3).map(t=>t.name).join(', ') : '',
+    p.huntingPivots?.[0] || '',
+  ].filter(Boolean).join('\n').slice(0,400);
+
+  const links = [
+    `<a href="https://dgiry.github.io/ioc-pivot?ioc=${encodeURIComponent(iocCtx)}" target="_blank" rel="noopener" class="pipeline-link">🔭 Pivot IOCs</a>`,
+    `<a href="https://dgiry.github.io/alert-explainer?alert=${encodeURIComponent(alertCtx)}" target="_blank" rel="noopener" class="pipeline-link">🚨 Explain alert</a>`,
+    `<a href="https://dgiry.github.io/sigma-generator?alert=${encodeURIComponent(sigmaCtx)}&platform=trend" target="_blank" rel="noopener" class="pipeline-link">✍️ Generate SIGMA</a>`,
+    `<a href="https://dgiry.github.io/playbook-builder?incident=${encodeURIComponent((p.summary || actor).slice(0,300))}" target="_blank" rel="noopener" class="pipeline-link">📖 Build playbook</a>`,
+  ];
+
+  strip.innerHTML = '<span class="pipeline-label">▶ Next step</span>' + links.join('');
+  strip.style.display = 'flex';
+}
+
+// ── Export ─────────────────────────────────────────────────────────────────
+function copyMarkdown() {
+  if (!_lastProfile) return;
+  const p = _lastProfile;
+  const lines = [
+    `# 🕵️ Threat Actor Profile: ${p.actorName}`,
+    `**Aliases:** ${(p.aliases||[]).join(', ') || '—'}`,
+    `**Origin:** ${p.origin||'—'} · **Type:** ${p.actorType||'—'} · **Active since:** ${p.activeSince||'—'}`,
+    `**Confidence:** ${p.confidence||'—'}`,
+    '',
+    '## Summary',
+    p.summary || '',
+    '',
+    '## Targeting',
+    `**Sectors:** ${(p.targetedSectors||[]).join(', ')}`,
+    `**Regions:** ${(p.targetedRegions||[]).join(', ')}`,
+    '',
+    '## MITRE ATT&CK',
+    ...(p.mitreTechniques||[]).map(t => `- **${t.id}** ${t.name} _(${t.tactic})_ — ${t.actorUse}`),
+    '',
+    '## Tooling',
+    ...(p.tooling||[]).map(t => `- **${t.name}** [${t.type}] — ${t.description}`),
+    '',
+    '## Campaigns',
+    ...(p.recentCampaigns||[]).map(c => `- **${c.name}** (${c.year}) — ${c.description}`),
+    '',
+    '## Infrastructure',
+    p.infrastructure || '—',
+    '',
+    '## Hunting Pivots',
+    ...(p.huntingPivots||[]).map(h => `- ${h}`),
+    '',
+    '---',
+    `_Generated by [Threat Actor Profiler](https://dgiry.github.io/threat-actor-profiler) · Verify against MITRE ATT&CK, Mandiant, CrowdStrike before operational use_`,
+  ];
+
+  navigator.clipboard.writeText(lines.join('\n'))
+    .then(() => showToast('Markdown copied'))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = lines.join('\n');
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      showToast('Markdown copied');
+    });
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-box');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+</script>
+</body>
+</html>
