@@ -597,13 +597,27 @@ function _getProviderConfig() {
     // then try to detect a known actor name in the text
     document.getElementById('context-input').value = ctx;
     const KNOWN_ACTORS = [
-      'APT28','APT29','APT30','APT31','APT32','APT33','APT34','APT35','APT38','APT40','APT41','APT43',
-      'Lazarus','Kimsuky','ScarCruft','Sandworm','Gamaredon','Turla','Cozy Bear','Fancy Bear',
+      // Chinese APTs
+      'APT10','APT27','APT28','APT29','APT30','APT31','APT32','APT33','APT34','APT35','APT38','APT40','APT41','APT43',
+      'Mustang Panda','RedDelta','Winnti','Hafnium','Earth Preta',
+      'Volt Typhoon','Salt Typhoon','Flax Typhoon','Silk Typhoon','Brass Typhoon','Storm-0558',
+      // Russian APTs
+      'Sandworm','Gamaredon','Turla','Cozy Bear','Fancy Bear',
+      'Midnight Blizzard','Forest Blizzard','Seashell Blizzard',
+      'Star Blizzard','ColdRiver','Berserk Bear',
+      // Iranian APTs
+      'APT33','APT34','APT35','APT39','OilRig','MuddyWater','Charming Kitten','Tortoiseshell','Moses Staff',
+      // North Korean APTs
+      'Lazarus','Kimsuky','ScarCruft','APT37','Andariel','BlueNoroff','Konni',
+      // Ransomware groups
       'LockBit','BlackCat','ALPHV','Cl0p','RansomHub','Akira','Play','Black Basta','Royal',
-      'Scattered Spider','Volt Typhoon','Salt Typhoon','Flax Typhoon',
+      'Medusa','Rhysida','Hunters International','Qilin','BianLian','8Base','Cactus',
+      'INC Ransom','Dark Angels','Fog','Lynx','Conti','REvil','DarkSide',
+      // Financial / eCrime
       'FIN7','FIN8','Carbanak','TA505','TA558','TA4903',
-      'Midnight Blizzard','Forest Blizzard','Seashell Blizzard','Silk Typhoon',
-      'Muddled Libra','Octo Tempest','UNC3944'
+      // Data extortion / Hacktivism
+      'Scattered Spider','Muddled Libra','Octo Tempest','UNC3944',
+      'Lapsus$','ShinyHunters','IntelBroker','USDoD','Killnet','Anonymous Sudan'
     ];
     const ctxUp = ctx.toUpperCase();
     const detected = KNOWN_ACTORS.find(a => ctxUp.includes(a.toUpperCase()));
