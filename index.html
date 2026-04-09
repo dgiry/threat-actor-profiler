@@ -482,7 +482,7 @@ let _loadingTimer = null;
   const ctx   = params.get('context') || params.get('ioc') || params.get('incident');
   if (actor) {
     document.getElementById('actor-input').value = actor;
-    if (ctx) document.getElementById('context-input').value = decodeURIComponent(ctx);
+    if (ctx) document.getElementById('context-input').value = ctx;
     setTimeout(profile, 200);
   }
 })();
@@ -539,7 +539,10 @@ function startLoadingSteps() {
 
 function stopLoadingSteps() {
   clearInterval(_loadingTimer);
-  document.querySelectorAll('.loading-step').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.loading-step').forEach(s => {
+    if (s.classList.contains('active')) s.classList.replace('active', 'done');
+    else if (!s.classList.contains('done')) s.classList.remove('active');
+  });
 }
 
 // ── Profile ────────────────────────────────────────────────────────────────
