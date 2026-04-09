@@ -582,14 +582,44 @@ function _getProviderConfig() {
     onProviderChange(); // sync models and key field
   }
 
-  // ?actor= deep-link
+  // ?actor= deep-link + auto-detection from ?context=
   const params = new URLSearchParams(location.search);
   const actor = params.get('actor');
   const ctx   = params.get('context') || params.get('ioc') || params.get('incident');
+
   if (actor) {
+    // Explicit actor name → pre-fill and auto-profile
     document.getElementById('actor-input').value = actor;
     if (ctx) document.getElementById('context-input').value = ctx;
     setTimeout(profile, 200);
+  } else if (ctx) {
+    // Context only (e.g. from SecPrior bridge) → pre-fill context,
+    // then try to detect a known actor name in the text
+    document.getElementById('context-input').value = ctx;
+    const KNOWN_ACTORS = [
+      'APT28','APT29','APT30','APT31','APT32','APT33','APT34','APT35','APT38','APT40','APT41','APT43',
+      'Lazarus','Kimsuky','ScarCruft','Sandworm','Gamaredon','Turla','Cozy Bear','Fancy Bear',
+      'LockBit','BlackCat','ALPHV','Cl0p','RansomHub','Akira','Play','Black Basta','Royal',
+      'Scattered Spider','Volt Typhoon','Salt Typhoon','Flax Typhoon',
+      'FIN7','FIN8','Carbanak','TA505','TA558','TA4903',
+      'Midnight Blizzard','Forest Blizzard','Seashell Blizzard','Silk Typhoon',
+      'Muddled Libra','Octo Tempest','UNC3944'
+    ];
+    const ctxUp = ctx.toUpperCase();
+    const detected = KNOWN_ACTORS.find(a => ctxUp.includes(a.toUpperCase()));
+    if (detected) {
+      document.getElementById('actor-input').value = detected;
+      setTimeout(profile, 200); // auto-profile with detected actor
+    } else {
+      // No actor found → focus input + show subtle hint
+      document.getElementById('actor-input').focus();
+      const hint = document.createElement('div');
+      hint.id = 'ctx-hint';
+      hint.style.cssText = 'font-size:.74rem;color:#bc8cff;margin-top:.4rem;padding:.3rem .6rem;background:rgba(188,140,255,.08);border-radius:5px;border:1px solid rgba(188,140,255,.2)';
+      hint.textContent = '✓ Context loaded from SecPrior — enter the actor name above to profile';
+      document.getElementById('actor-input').insertAdjacentElement('afterend', hint);
+      setTimeout(() => hint.remove(), 6000);
+    }
   }
 })();
 
