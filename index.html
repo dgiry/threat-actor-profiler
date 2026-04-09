@@ -625,14 +625,16 @@ function _getProviderConfig() {
       document.getElementById('actor-input').value = detected;
       setTimeout(profile, 200); // auto-profile with detected actor
     } else {
-      // No actor found → focus input + show subtle hint
-      document.getElementById('actor-input').focus();
+      // No actor found → focus input + show persistent hint
+      const actorInput = document.getElementById('actor-input');
+      actorInput.focus();
       const hint = document.createElement('div');
       hint.id = 'ctx-hint';
-      hint.style.cssText = 'font-size:.74rem;color:#bc8cff;margin-top:.4rem;padding:.3rem .6rem;background:rgba(188,140,255,.08);border-radius:5px;border:1px solid rgba(188,140,255,.2)';
-      hint.textContent = '✓ Context loaded from SecPrior — enter the actor name above to profile';
-      document.getElementById('actor-input').insertAdjacentElement('afterend', hint);
-      setTimeout(() => hint.remove(), 6000);
+      hint.style.cssText = 'font-size:.74rem;color:#f59e42;margin-top:.4rem;padding:.35rem .7rem;background:rgba(245,158,66,.08);border-radius:5px;border:1px solid rgba(245,158,66,.25);display:flex;align-items:center;gap:.4rem';
+      hint.innerHTML = '<span>⚠️</span><span>No threat actor detected in this context — type an actor name above to start profiling</span>';
+      actorInput.insertAdjacentElement('afterend', hint);
+      // Remove hint as soon as user starts typing
+      actorInput.addEventListener('input', () => hint.remove(), { once: true });
     }
   }
 })();
